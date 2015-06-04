@@ -1,2 +1,1 @@
-# collectionjson
-a golang collection json parser.
+A Collection JSON parser in golang.

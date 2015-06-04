@@ -1,0 +1,26 @@
+{
+    "collection": {
+        "version": "1.0",
+        "href": "http://www.baidu.com",
+        "links": [
+        ],
+        "items": [
+        ],
+        "queries": [
+        ],
+        "template": {
+            "data": [
+                {
+                    "name": "name",
+                    "value": "ywl"
+                }
+            ]
+        },
+        "error": {
+            "title": "FFF",
+            "code": "Code string.",
+            "message": "This is an error message."
+        }
+    },
+    "lalala":250
+}
