@@ -69,14 +69,6 @@ type ErrorType struct {
  * A very simple pack of json package.
  * Let callers need not import json package in some case.
  */
-/*
-func ReadCollectionJson(inputData []byte) (CollectionJsonType, error) {
-	var cj CollectionJsonType
-	err := json.Unmarshal(inputData, &cj)
-	return cj, err
-}
-*/
-
 func ReadCollectionJson(inputData interface{}) (CollectionJsonType, error) {
 	var cj CollectionJsonType
 	var err error
