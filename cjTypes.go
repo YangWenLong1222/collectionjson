@@ -96,14 +96,21 @@ func WriteCollectionJson(cj CollectionJsonType) ([]byte, error) {
 /*
  * Set field of me with the value of the same field of cj, if this field of me is empty("" or nil)
  * Append array value of cj into the same field of me.
+ * Using JoinMe() instead of using merge() directly, Since there may some special logical in some type.
  */
 func (me *CollectionJsonType) JoinMe(cj CollectionJsonType) {
 	merge(me, cj)
 	return
 }
 
+func (me *ItemType) JoinMe(cj ItemType) {
+	merge(me, cj)
+	return
+}
+
 func merge(me interface{}, cj interface{}) {
-	//TODO: 判断me是否是一个指针。
+	//TODO: 判断me是否是一个指针。如果不是报错。
+	//TODO: 判断me指向的类型和cj是否是一个类型，如果不是，报错。如果要放开，必须要做这个检查，如果不，则不用了。
 	meValue := reflect.ValueOf(me).Elem()
 
 	switch meValue.Kind() {
