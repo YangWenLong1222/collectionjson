@@ -1,9 +1,15 @@
+/*
+ * Process all the boring things of cj for you.
+ * Keep away from collection-json, save your life.
+ * I love life, but I hate collection-json.
+ */
 package cj
 
 import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 )
 
 type CollectionJsonType struct {
@@ -69,6 +75,14 @@ type ErrorType struct {
  * A very simple pack of json package.
  * Let callers need not import json package in some case.
  */
+/*
+func ReadCollectionJson(inputData []byte) (CollectionJsonType, error) {
+	var cj CollectionJsonType
+	err := json.Unmarshal(inputData, &cj)
+	return cj, err
+}
+*/
+
 func ReadCollectionJson(inputData interface{}) (CollectionJsonType, error) {
 	var cj CollectionJsonType
 	var err error
@@ -94,23 +108,59 @@ func WriteCollectionJson(cj CollectionJsonType) ([]byte, error) {
 }
 
 /*
+ * Transfer cj.template content into local struct.
+ */
+func (me CollectionJsonType) AbstractTo(outputData interface{}) {
+	outputDataValue := reflect.ValueOf(outputData).Elem()
+	for _, data := range me.Template.Data {
+		fieldName := strings.Title(data.Name)
+		field := outputDataValue.FieldByName(fieldName)
+		if field.IsValid() {
+			var dataValue reflect.Value
+			switch data.Value.(type) {
+			case []interface{}:
+				buf, _ := json.Marshal(data.Value) // TODO: err process.
+				dataValue = reflect.New(field.Type())
+				json.Unmarshal(buf, dataValue.Interface())
+				dataValue = dataValue.Elem()
+			default:
+				dataValue = reflect.ValueOf(data.Value)
+			}
+			field.Set(dataValue)
+		} else {
+			fmt.Println("no field: " + fieldName) //TODO: use a better logger.
+		}
+	}
+}
+
+/*
+ * Change the item according to the input local struct and href string.
+ * Ignore the links in cj, since it is only OPTIONAL.
+ * panic if there is any err.
+ */
+func (me *ItemType) ConcreteFrom(inputData interface{}, href string) {
+	me.Href = URIType(href)
+	inputDataValue := reflect.ValueOf(inputData)
+	for i := 0; i < inputDataValue.NumField(); i++ {
+		var data DataType
+		elem := inputDataValue.Field(i)
+		data.Name = inputDataValue.Type().Field(i).Name
+		data.Value = ValueType(elem.Interface())
+		me.Data = append(me.Data, data)
+	}
+}
+
+/*
  * Set field of me with the value of the same field of cj, if this field of me is empty("" or nil)
  * Append array value of cj into the same field of me.
- * Using JoinMe() instead of using merge() directly, Since there may some special logical in some type.
  */
 func (me *CollectionJsonType) JoinMe(cj CollectionJsonType) {
 	merge(me, cj)
 	return
 }
 
-func (me *ItemType) JoinMe(cj ItemType) {
-	merge(me, cj)
-	return
-}
-
 func merge(me interface{}, cj interface{}) {
-	//TODO: 判断me是否是一个指针。如果不是报错。
-	//TODO: 判断me指向的类型和cj是否是一个类型，如果不是，报错。如果要放开，必须要做这个检查，如果不，则不用了。
+	//TODO: 判断me是否是一个指针。
 	meValue := reflect.ValueOf(me).Elem()
 
 	switch meValue.Kind() {
