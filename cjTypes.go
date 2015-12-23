@@ -138,7 +138,8 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
  * Ignore the links in cj, since it is only OPTIONAL.
  * panic if there is any err.
  */
-func (me *ItemType) ConcreteFrom(inputData interface{}, href string) {
+func ConcreteFrom(inputData interface{}, href URIType) ItemType {
+	var me ItemType
 	me.Href = URIType(href)
 	inputDataValue := reflect.ValueOf(inputData)
 	for i := 0; i < inputDataValue.NumField(); i++ {
@@ -148,6 +149,7 @@ func (me *ItemType) ConcreteFrom(inputData interface{}, href string) {
 		data.Value = ValueType(elem.Interface())
 		me.Data = append(me.Data, data)
 	}
+	return me
 }
 
 /*
