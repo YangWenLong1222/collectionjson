@@ -145,7 +145,7 @@ func ConcreteFrom(inputData interface{}, href URIType) ItemType {
 	for i := 0; i < inputDataValue.NumField(); i++ {
 		var data DataType
 		elem := inputDataValue.Field(i)
-		data.Name = inputDataValue.Type().Field(i).Name
+		data.Name = strings.ToLower(inputDataValue.Type().Field(i).Name)
 		data.Value = ValueType(elem.Interface())
 		me.Data = append(me.Data, data)
 	}
