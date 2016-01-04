@@ -8,7 +8,24 @@
         ],
         "queries": [
         ],
-        "template": {
+ 
+        "error": {
+            "title": "FFF",
+            "code": "Code string.",
+            "message": "This is an error message."
+        }
+    },
+    "template1":
+        {
+            "data": [
+                {
+                    "name": "name",
+                    "value": "kkk"
+                }
+            ]
+        },
+    "template": [
+        {
             "data": [
                 {
                     "name": "name",
@@ -16,11 +33,13 @@
                 }
             ]
         },
-        "error": {
-            "title": "FFF",
-            "code": "Code string.",
-            "message": "This is an error message."
+        {
+            "data": [
+                {
+                    "name": "name",
+                    "value": "ss"
+                }
+            ]
         }
-    },
-    "lalala":250
+    ]
 }

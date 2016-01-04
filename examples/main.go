@@ -2,6 +2,7 @@ package main
 
 import (
 	".."
+	"encoding/json"
 	"fmt"
 	"os"
 )
@@ -17,7 +18,7 @@ var inputData cj.CollectionJsonType
 func testReadCollectionJson() {
 	fmt.Println("================START================")
 	fmt.Println("testReadCollectionJson")
-	file, err := os.Open(INPUT_FILE_NAME)
+	file, err := os.Open(INPUT_FILE_NAME) // This kind Open is just for reading.
 	if err != nil {
 		fmt.Println(err.Error())
 	}
@@ -43,9 +44,9 @@ func testReadCollectionJson() {
 		},
 	}
 
-	inputData, _ = cj.ReadCollectionJson(buf)
-	inputData, _ = cj.ReadCollectionJson(src)
-	inputData, _ = cj.ReadCollectionJson(mapSrc)
+	inputData, _, _ = cj.ReadCollectionJson(buf)
+	inputData, _, _ = cj.ReadCollectionJson(src)
+	inputData, _, _ = cj.ReadCollectionJson(mapSrc)
 
 	fmt.Println(inputData)
 	fmt.Println(inputData.Collection)
@@ -55,18 +56,21 @@ func testReadCollectionJson() {
 func testAppendCollectionJson() {
 	fmt.Println("================START================")
 	fmt.Println("testAppendCollectionJson")
-	inputData.Collection.Template.Data = append(
-		inputData.Collection.Template.Data,
+	templ := inputData.Collection.Template.(cj.TemplateTypeStandard)
+	templ.Data = append(
+		templ.Data,
 		cj.DataType{
 			"age",
 			34,
 			"",
 		},
 	)
+	inputData.Collection.Template = templ
 	fmt.Println(inputData)
 	fmt.Println("=================END=================")
 }
 
+/*
 func testJoinAnotherCJ() {
 	fmt.Println("================START================")
 	fmt.Println("testJoinAnotherCJ")
@@ -95,8 +99,9 @@ func testJoinAnotherCJ() {
 	fmt.Println(inputData)
 	fmt.Println("=================END=================")
 }
+*/
 
-func testWriteCollectionJson() {
+func testWriteCollectionJson(inputData cj.CollectionJsonType) {
 	fmt.Println("================START================")
 	fmt.Println("testWriteCollectionJson")
 	retBytes, _ := cj.WriteCollectionJson(inputData)
@@ -123,9 +128,138 @@ func testWriteCollectionJson() {
 	fmt.Println("=================END=================")
 }
 
+func testTemplateArray() {
+	fmt.Println("================START================")
+	fmt.Println("testWriteCollectionJson")
+	file, err := os.Open(INPUT_FILE_NAME)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer file.Close()
+
+	var n int
+	buf := make([]byte, FILE_SIZE_LIMIT)
+	n, err = file.Read(buf)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	fmt.Println(n)
+	buf = buf[:n]
+
+	src := string(buf)
+	// fmt.Println(src)
+
+	inputData, _, err = cj.ReadCollectionJson(src)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+
+	fmt.Println(inputData)
+
+	fmt.Println("=================END=================")
+}
+
+func testAbstractTo() {
+	fmt.Println("================START================")
+	fmt.Println("testAbstractTo")
+	file, err := os.Open(INPUT_FILE_NAME) // This kind Open is just for reading.
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	defer file.Close()
+	buf := make([]byte, FILE_SIZE_LIMIT)
+	var n int
+	n, err = file.Read(buf)
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	buf = buf[:n]
+	srcData, isExt, err1 := cj.ReadCollectionJson(buf)
+	fmt.Println(srcData)
+	fmt.Println(isExt)
+	fmt.Println(err1)
+
+	type tarType struct {
+		Name string
+	}
+	var tar tarType
+	var tarArr []tarType
+	if isExt {
+		fmt.Println("Extension")
+		srcData.AbstractTo(&tarArr)
+		if err != nil {
+			fmt.Println("ab err")
+		}
+		fmt.Println(tarArr)
+	} else {
+		fmt.Println("Standard")
+		srcData.AbstractTo(&tar)
+		if err != nil {
+			fmt.Println("ab err")
+		}
+		fmt.Println(tar)
+	}
+
+	testWriteCollectionJson(srcData)
+	fmt.Println("=================END=================")
+}
+
+func testConcreteFrom() {
+	fmt.Println("================START================")
+	fmt.Println("testConcreteFrom")
+	src := struct {
+		Merchant int
+		Name     string
+	}{62, "RD_TEST"}
+	fmt.Println(src)
+	dest := cj.ConcreteFrom(src, "llala")
+	fmt.Println(dest)
+	var ccjj cj.CollectionJsonType
+	ccjj.Collection.Items = []cj.ItemType{}
+	ccjj.Collection.Items = append(ccjj.Collection.Items, dest)
+	buf, _ := cj.WriteCollectionJson(ccjj)
+	fmt.Println(string(buf))
+
+	fmt.Println("=================END=================")
+}
+
+func testOther() {
+	src := []map[string]interface{}{
+		{
+			"title":   "first rule",
+			"checked": 1,
+		},
+		{
+			"title":   "second rule",
+			"checked": 0,
+		},
+	}
+
+	type RuleType struct {
+		Title   string
+		Checked int
+		Promote string
+	}
+
+	fmt.Println(src)
+	buf, _ := json.Marshal(src)
+	fmt.Println(src)
+	fmt.Println(buf)
+	fmt.Println(string(buf))
+
+	res := []RuleType{}
+	json.Unmarshal(buf, &res)
+	fmt.Println(res)
+}
+
 func main() {
-	testReadCollectionJson()
-	testAppendCollectionJson()
-	testJoinAnotherCJ()
-	testWriteCollectionJson()
+	// testReadCollectionJson()
+	// testAppendCollectionJson()
+	// testJoinAnotherCJ()
+	// testTemplateArray()
+	testAbstractTo()
+	// testWriteCollectionJson()
+	// testConcreteFrom()
+	// testOther()
 }

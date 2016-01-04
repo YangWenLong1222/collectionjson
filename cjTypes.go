@@ -2,6 +2,9 @@
  * Process all the boring things of cj for you.
  * Keep away from collection-json, save your life.
  * I love life, but I hate collection-json.
+ * Something more than CJ standard:
+ *     1, The value could be Array or Map type which could NOT according to CJ standard.
+ *     2, Template could accept an Array to create multi-items together.
  */
 package cj
 
@@ -53,7 +56,13 @@ type QueryType struct {
 	Data   []DataType `json:"data"`   // OPTIONAL
 }
 
-type TemplateType struct {
+type TemplateType interface{}
+
+type TemplateTypeStandard struct {
+	Data []DataType `json:"data"`
+}
+
+type TemplateTypeExt []struct {
 	Data []DataType `json:"data"`
 }
 
@@ -72,19 +81,14 @@ type ErrorType struct {
 }
 
 /*
- * A very simple pack of json package.
- * Let callers need not import json package in some case.
+ * ret val:
+ * cj    -- The result cj struct val.
+ * isExt -- Tell the caller this cj is an Extension of cj or not.
+ * err   -- Any err when reading cj content.
  */
-/*
-func ReadCollectionJson(inputData []byte) (CollectionJsonType, error) {
+func ReadCollectionJson(inputData interface{}) (CollectionJsonType, bool, error) {
 	var cj CollectionJsonType
-	err := json.Unmarshal(inputData, &cj)
-	return cj, err
-}
-*/
-
-func ReadCollectionJson(inputData interface{}) (CollectionJsonType, error) {
-	var cj CollectionJsonType
+	var isExt bool
 	var err error
 	var buf []byte
 
@@ -100,7 +104,21 @@ func ReadCollectionJson(inputData interface{}) (CollectionJsonType, error) {
 	if err == nil {
 		err = json.Unmarshal(buf, &cj)
 	}
-	return cj, err
+
+	if err != nil {
+		return cj, false, err
+	}
+
+	switch cj.Template.(type) {
+	case []interface{}:
+		isExt = true
+	case map[string]interface{}:
+		isExt = false
+	default:
+		fmt.Println("Err template.") //TODO: find a better logger.
+	}
+
+	return cj, isExt, err
 }
 
 func WriteCollectionJson(cj CollectionJsonType) ([]byte, error) {
@@ -112,16 +130,48 @@ func WriteCollectionJson(cj CollectionJsonType) ([]byte, error) {
  */
 func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 	outputDataValue := reflect.ValueOf(outputData).Elem()
-	for _, data := range me.Template.Data {
+
+	switch me.Template.(type) {
+	case map[string]interface{}:
+		fmt.Println("runs here.map")
+		var ts TemplateTypeStandard
+		map2struct(me.Template, &ts)
+		fmt.Println(ts)
+		nv2Struct(ts.Data, outputDataValue)
+	case []interface{}:
+		fmt.Println("runs here.multi")
+		sliceType := outputDataValue.Type()
+		fmt.Println(sliceType)
+
+		sliceValue := reflect.MakeSlice(sliceType, 1, 1) // TODO: the len and cap should inc auto.
+		elemType := sliceValue.Index(0).Type()
+		fmt.Println(elemType)
+
+		var tm TemplateTypeExt
+		map2struct(me.Template, &tm)
+		me.Template = tm
+		for _, item := range tm {
+			for _, data := range item.Data {
+				fmt.Println("every data", data)
+			}
+			dataValue := reflect.New(elemType).Elem()
+			nv2Struct(item.Data, dataValue)
+			sliceValue = reflect.Append(sliceValue, dataValue)
+		}
+		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len()))
+	}
+}
+
+func nv2Struct(dataArr []DataType, outputDataValue reflect.Value) {
+	for _, data := range dataArr {
 		fieldName := strings.Title(data.Name)
 		field := outputDataValue.FieldByName(fieldName)
 		if field.IsValid() {
 			var dataValue reflect.Value
 			switch data.Value.(type) {
 			case []interface{}:
-				buf, _ := json.Marshal(data.Value) // TODO: err process.
 				dataValue = reflect.New(field.Type())
-				json.Unmarshal(buf, dataValue.Interface())
+				map2struct(data.Value, dataValue.Interface())
 				dataValue = dataValue.Elem()
 			default:
 				dataValue = reflect.ValueOf(data.Value)
@@ -131,6 +181,15 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 			fmt.Println("no field: " + fieldName) //TODO: use a better logger.
 		}
 	}
+}
+
+/*
+ * Maybe there would be a better way using reflect but not json.
+ * Actually json use reflect tech too.
+ */
+func map2struct(src interface{}, destPointer interface{}) {
+	buf, _ := json.Marshal(src) // TODO: err process.
+	json.Unmarshal(buf, destPointer)
 }
 
 /*
