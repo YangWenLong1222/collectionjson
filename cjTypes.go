@@ -133,19 +133,14 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 
 	switch me.Template.(type) {
 	case map[string]interface{}:
-		fmt.Println("runs here.map")
 		var ts TemplateTypeStandard
 		map2struct(me.Template, &ts)
-		fmt.Println(ts)
 		nv2Struct(ts.Data, outputDataValue)
 	case []interface{}:
-		fmt.Println("runs here.multi")
 		sliceType := outputDataValue.Type()
-		fmt.Println(sliceType)
 
 		sliceValue := reflect.MakeSlice(sliceType, 1, 1) // TODO: the len and cap should inc auto.
-		elemType := sliceValue.Index(0).Type()
-		fmt.Println(elemType)
+		elemType := sliceValue.Index(0).Type()           //TODO: Is there a better way to get the type of element in slice?
 
 		var tm TemplateTypeExt
 		map2struct(me.Template, &tm)
@@ -164,22 +159,33 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 
 func nv2Struct(dataArr []DataType, outputDataValue reflect.Value) {
 	for _, data := range dataArr {
-		fieldName := strings.Title(data.Name)
-		field := outputDataValue.FieldByName(fieldName)
-		if field.IsValid() {
-			var dataValue reflect.Value
-			switch data.Value.(type) {
-			case []interface{}:
-				dataValue = reflect.New(field.Type())
-				map2struct(data.Value, dataValue.Interface())
-				dataValue = dataValue.Elem()
-			default:
-				dataValue = reflect.ValueOf(data.Value)
+		func() {
+			fieldName := strings.Title(data.Name)
+			field := outputDataValue.FieldByName(fieldName)
+			defer func() {
+				if e := recover(); e != nil {
+					fmt.Println(e)
+					fmt.Println(fieldName, data.Value)
+				}
+			}()
+			if field.IsValid() {
+				var dataValue reflect.Value
+				switch data.Value.(type) {
+				case float64:
+					dataValue = reflect.ValueOf(data.Value)
+					dataValue = dataValue.Convert(field.Type())
+				case []interface{}:
+					dataValue = reflect.New(field.Type())
+					map2struct(data.Value, dataValue.Interface())
+					dataValue = dataValue.Elem()
+				default:
+					dataValue = reflect.ValueOf(data.Value)
+				}
+				field.Set(dataValue)
+			} else {
+				fmt.Println("no field: " + fieldName) //TODO: use a better logger.
 			}
-			field.Set(dataValue)
-		} else {
-			fmt.Println("no field: " + fieldName) //TODO: use a better logger.
-		}
+		}()
 	}
 }
 
