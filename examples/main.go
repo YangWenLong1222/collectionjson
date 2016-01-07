@@ -181,9 +181,12 @@ func testAbstractTo() {
 	fmt.Println(err1)
 
 	type tarType struct {
-		Name string
+		Name    string
+		Address string
+		age     int
 	}
 	var tar tarType
+	tar.age = 33
 	var tarArr []tarType
 	if isExt {
 		fmt.Println("Extension")
