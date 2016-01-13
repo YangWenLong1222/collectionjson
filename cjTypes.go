@@ -112,8 +112,14 @@ func ReadCollectionJson(inputData interface{}) (CollectionJsonType, bool, error)
 	switch cj.Template.(type) {
 	case []interface{}:
 		isExt = true
+		var tm TemplateTypeExt
+		map2struct(cj.Template, &tm)
+		cj.Template = tm
 	case map[string]interface{}:
 		isExt = false
+		var ts TemplateTypeStandard
+		map2struct(cj.Template, &ts)
+		cj.Template = ts
 	default:
 		fmt.Println("Err template.") //TODO: find a better logger.
 	}
@@ -132,20 +138,15 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 	outputDataValue := reflect.ValueOf(outputData).Elem()
 
 	switch me.Template.(type) {
-	case map[string]interface{}:
-		var ts TemplateTypeStandard
-		map2struct(me.Template, &ts)
-		nv2Struct(ts.Data, outputDataValue)
-	case []interface{}:
+	case TemplateTypeStandard:
+		nv2Struct(me.Template.(TemplateTypeStandard).Data, outputDataValue)
+	case TemplateTypeExt:
 		sliceType := outputDataValue.Type()
 
 		sliceValue := reflect.MakeSlice(sliceType, 1, 1) // TODO: the len and cap should inc auto.
 		elemType := sliceValue.Index(0).Type()           //TODO: Is there a better way to get the type of element in slice?
 
-		var tm TemplateTypeExt
-		map2struct(me.Template, &tm)
-		me.Template = tm
-		for _, item := range tm {
+		for _, item := range me.Template.(TemplateTypeExt) {
 			for _, data := range item.Data {
 				fmt.Println("every data", data)
 			}
@@ -153,7 +154,7 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 			nv2Struct(item.Data, dataValue)
 			sliceValue = reflect.Append(sliceValue, dataValue)
 		}
-		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len()))
+		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len())) // rm the 1st empty elem.
 	}
 }
 
