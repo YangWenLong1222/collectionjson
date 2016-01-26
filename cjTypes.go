@@ -156,7 +156,7 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 		}
 		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len())) // rm the 1st empty elem.
 	}
-	ReplaceStructNil(outputData)
+	// ReplaceStructNil(outputData)
 }
 
 /*
