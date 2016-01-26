@@ -156,6 +156,57 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 		}
 		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len())) // rm the 1st empty elem.
 	}
+	ReplaceStructNil(outputData)
+}
+
+/*
+ * p is the pointer of a struct which should not have nil as some fields' value.
+ */
+func ReplaceStructNil(p interface{}) {
+	pValue := reflect.ValueOf(p).Elem()
+	var valueToSet reflect.Value
+	if pValue.Kind() == reflect.Struct {
+		num := pValue.NumField()
+		for i := 0; i < num; i++ {
+			pNext := pValue.Field(i).Addr().Interface()
+			ReplaceStructNil(pNext)
+		}
+		return
+	}
+
+	var couldNotBeNil bool
+	switch pValue.Kind() {
+	case reflect.Chan:
+		valueToSet = reflect.MakeChan(pValue.Type(), 1)
+	case reflect.Func:
+		valueToSet = reflect.MakeFunc(pValue.Type(), func(args []reflect.Value) (results []reflect.Value) {
+			var ret []reflect.Value
+			return ret
+		})
+	case reflect.Map:
+		valueToSet = reflect.MakeMap(pValue.Type())
+
+	case reflect.Slice:
+		valueToSet = reflect.MakeSlice(pValue.Type(), 0, 1)
+
+	case reflect.Interface:
+		fallthrough
+	case reflect.Struct:
+		fallthrough
+	case reflect.Ptr:
+		fallthrough
+	case reflect.UnsafePointer:
+		valueToSet = reflect.New(pValue.Type()).Elem()
+
+	default:
+		couldNotBeNil = true
+	}
+
+	if !couldNotBeNil && pValue.IsNil() {
+		pValue.Set(valueToSet)
+		return
+	}
+	return
 }
 
 func nv2Struct(dataArr []DataType, outputDataValue reflect.Value) {
