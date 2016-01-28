@@ -256,13 +256,31 @@ func testOther() {
 	fmt.Println(res)
 }
 
+func testTemplateMaker() {
+	fmt.Println("================START================")
+	fmt.Println("testTemplateMaker")
+	src := struct {
+		Merchant int
+		Name     string
+	}{62, "RD_TEST"}
+
+	ret := cj.TemplateMaker(src)
+	var cjRet cj.CollectionJsonType
+	cjRet
+
+	fmt.Println(ret)
+
+	fmt.Println("=================END=================")
+}
+
 func main() {
 	// testReadCollectionJson()
 	// testAppendCollectionJson()
 	// testJoinAnotherCJ()
 	// testTemplateArray()
-	testAbstractTo()
+	// testAbstractTo()
 	// testWriteCollectionJson()
 	// testConcreteFrom()
 	// testOther()
+	testTemplateMaker()
 }

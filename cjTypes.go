@@ -128,6 +128,7 @@ func ReadCollectionJson(inputData interface{}) (CollectionJsonType, bool, error)
 }
 
 func WriteCollectionJson(cj CollectionJsonType) ([]byte, error) {
+	replaceStructNilWithOne(&cj, false)
 	return json.Marshal(cj)
 }
 
@@ -156,57 +157,6 @@ func (me CollectionJsonType) AbstractTo(outputData interface{}) {
 		}
 		outputDataValue.Set(sliceValue.Slice(1, sliceValue.Len())) // rm the 1st empty elem.
 	}
-	// ReplaceStructNil(outputData)
-}
-
-/*
- * p is the pointer of a struct which should not have nil as some fields' value.
- */
-func ReplaceStructNil(p interface{}) {
-	pValue := reflect.ValueOf(p).Elem()
-	var valueToSet reflect.Value
-	if pValue.Kind() == reflect.Struct {
-		num := pValue.NumField()
-		for i := 0; i < num; i++ {
-			pNext := pValue.Field(i).Addr().Interface()
-			ReplaceStructNil(pNext)
-		}
-		return
-	}
-
-	var couldNotBeNil bool
-	switch pValue.Kind() {
-	case reflect.Chan:
-		valueToSet = reflect.MakeChan(pValue.Type(), 1)
-	case reflect.Func:
-		valueToSet = reflect.MakeFunc(pValue.Type(), func(args []reflect.Value) (results []reflect.Value) {
-			var ret []reflect.Value
-			return ret
-		})
-	case reflect.Map:
-		valueToSet = reflect.MakeMap(pValue.Type())
-
-	case reflect.Slice:
-		valueToSet = reflect.MakeSlice(pValue.Type(), 0, 1)
-
-	case reflect.Interface:
-		fallthrough
-	case reflect.Struct:
-		fallthrough
-	case reflect.Ptr:
-		fallthrough
-	case reflect.UnsafePointer:
-		valueToSet = reflect.New(pValue.Type()).Elem()
-
-	default:
-		couldNotBeNil = true
-	}
-
-	if !couldNotBeNil && pValue.IsNil() {
-		pValue.Set(valueToSet)
-		return
-	}
-	return
 }
 
 func nv2Struct(dataArr []DataType, outputDataValue reflect.Value) {
@@ -259,10 +209,17 @@ func ConcreteFrom(inputData interface{}, href URIType) ItemType {
 	var me ItemType
 	me.Href = URIType(href)
 	inputDataValue := reflect.ValueOf(inputData)
+	tmp := reflect.New(reflect.TypeOf(inputData)).Elem()
+	tmp.Set(inputDataValue) // make a copy of input, so that it's accessable.
+	//TODO: find a better way without making a copy to access the inputData parameter,
+	//      as in C, the input param should be a local copy, and could be accessed.
+	replaceStructNilWithOne(tmp.Addr().Interface(), false)
 	for i := 0; i < inputDataValue.NumField(); i++ {
 		var data DataType
-		elem := inputDataValue.Field(i)
-		data.Name = strings.ToLower(inputDataValue.Type().Field(i).Name)
+		// elem := inputDataValue.Field(i)
+		// data.Name = strings.ToLower(inputDataValue.Type().Field(i).Name)
+		elem := tmp.Field(i)
+		data.Name = strings.ToLower(tmp.Type().Field(i).Name)
 		data.Value = ValueType(elem.Interface())
 		me.Data = append(me.Data, data)
 	}
@@ -270,45 +227,70 @@ func ConcreteFrom(inputData interface{}, href URIType) ItemType {
 }
 
 /*
- * Set field of me with the value of the same field of cj, if this field of me is empty("" or nil)
- * Append array value of cj into the same field of me.
+ * Automaticly generate a template data module according to the dataModule struct type.
  */
-func (me *CollectionJsonType) JoinMe(cj CollectionJsonType) {
-	merge(me, cj)
-	return
+func TemplateMaker(dataModule interface{}) TemplateTypeStandard {
+	// assert dataModule is a struct type.
+	tmpNew := reflect.New(reflect.TypeOf(dataModule)).Elem()
+	tmpNewAddr := tmpNew.Addr().Interface()
+	replaceStructNilWithOne(tmpNewAddr, true)
+	item := ConcreteFrom(tmpNew.Interface(), URIType("not a real one"))
+	var ret TemplateTypeStandard
+	ret.Data = item.Data
+	return ret
 }
 
-func merge(me interface{}, cj interface{}) {
-	//TODO: 判断me是否是一个指针。
-	meValue := reflect.ValueOf(me).Elem()
-
-	switch meValue.Kind() {
-
-	case reflect.String:
-		value := meValue.String()
-		if value == "" {
-			meValue.Set(reflect.ValueOf(cj))
+/*
+ * p is the pointer of a struct which should not have nil as some fields' value.
+ * if isSliceExt is true, the nil slice would have one element which won't have a nil too.
+ * and if not, there would be an empty slice to replace the nil slice.
+ */
+func replaceStructNilWithOne(p interface{}, isSliceExt bool) {
+	pValue := reflect.ValueOf(p).Elem()
+	if pValue.Kind() == reflect.Struct {
+		num := pValue.NumField()
+		for i := 0; i < num; i++ {
+			pNext := pValue.Field(i).Addr().Interface()
+			replaceStructNilWithOne(pNext, isSliceExt)
 		}
+		return
+	}
+
+	var valueToSet reflect.Value
+	var couldNotBeNil bool
+	switch pValue.Kind() {
+	case reflect.Chan:
+		valueToSet = reflect.MakeChan(pValue.Type(), 1)
+	case reflect.Func:
+		valueToSet = reflect.MakeFunc(pValue.Type(), func(args []reflect.Value) (results []reflect.Value) {
+			var ret []reflect.Value
+			return ret
+		})
+	case reflect.Map:
+		valueToSet = reflect.MakeMap(pValue.Type())
 
 	case reflect.Slice:
-		//TODO: 不能简单的append，需要去掉重复的，依据name。
-		meValue.Set(reflect.AppendSlice(meValue, reflect.ValueOf(cj)))
-
-	case reflect.Struct:
-		num := meValue.NumField()
-		for i := 0; i < num; i++ {
-			pField := meValue.Field(i).Addr().Interface()
-			merge(pField, reflect.ValueOf(cj).Field(i).Interface())
+		if isSliceExt {
+			valueToSet = reflect.MakeSlice(pValue.Type(), 1, 1)
+			replaceStructNilWithOne(valueToSet.Index(0).Addr().Interface(), isSliceExt)
+		} else {
+			valueToSet = reflect.MakeSlice(pValue.Type(), 0, 1)
 		}
 
 	case reflect.Interface:
-		value := meValue.Interface()
-		if value == nil {
-			meValue.Set(reflect.ValueOf(cj))
-		}
+		fallthrough
+	case reflect.Ptr:
+		fallthrough
+	case reflect.UnsafePointer:
+		valueToSet = reflect.New(pValue.Type()).Elem()
 
 	default:
-		fmt.Println("default")
+		couldNotBeNil = true
+	}
+
+	if !couldNotBeNil && pValue.IsNil() {
+		pValue.Set(valueToSet)
+		return
 	}
 	return
 }
